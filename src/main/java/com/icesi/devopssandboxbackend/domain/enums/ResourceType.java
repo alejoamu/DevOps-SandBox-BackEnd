@@ -1,8 +1,10 @@
 package com.icesi.devopssandboxbackend.domain.enums;
 
 public enum ResourceType {
-	VIDEO,
-	DOCUMENT,
-	IMAGE
+    video,
+    article,
+    book,
+    tool,
+    other
 }
 
