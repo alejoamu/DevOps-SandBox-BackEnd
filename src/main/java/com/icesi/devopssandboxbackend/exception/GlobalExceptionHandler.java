@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @RestControllerAdvice
@@ -40,6 +41,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex) {
 		return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+	}
+
+	@ExceptionHandler(ResponseStatusException.class)
+	public ResponseEntity<ApiError> handleResponseStatus(ResponseStatusException ex) {
+		HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+		if (status == null) {
+			status = HttpStatus.INTERNAL_SERVER_ERROR;
+		}
+		String message = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
+		return buildResponse(status, message, null);
 	}
 
 	@ExceptionHandler(Exception.class)
