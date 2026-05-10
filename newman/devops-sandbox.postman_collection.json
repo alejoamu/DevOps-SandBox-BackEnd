@@ -1,0 +1,1371 @@
+{
+    "info": {
+        "name": "DevOps SandBox Backend - Newman Suite",
+        "_postman_id": "8b3d9b3f-1a2a-4c1f-8a3b-fe17b6c2c001",
+        "description": "Suite de pruebas E2E para el backend DevOps SandBox. Cubre auth, health, methodologies, phases, subphases, resources y subphase-resources, incluyendo casos de éxito y error (validaciones, 401, 404, 400) para alcanzar >= 90% de coverage cuando se ejecuta con el agente de JaCoCo.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        { "key": "createdMethodologyId", "value": "" },
+        { "key": "createdPhaseId", "value": "" },
+        { "key": "secondPhaseId", "value": "" },
+        { "key": "createdSubphaseId", "value": "" },
+        { "key": "secondSubphaseId", "value": "" },
+        { "key": "createdResourceId", "value": "" },
+        { "key": "createdResourceId2", "value": "" }
+    ],
+    "item": [
+        {
+            "name": "00 - Health",
+            "item": [
+                {
+                    "name": "GET /api/health",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('status=UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "01 - Auth",
+            "item": [
+                {
+                    "name": "POST /api/auth/login - validation error (campos vacíos)",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "body": { "mode": "raw", "raw": "{\"username\":\"\",\"password\":\"\"}" },
+                        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                                    "pm.test('GlobalExceptionHandler responde con ApiError', () => {",
+                                    "  const j = pm.response.json();",
+                                    "  pm.expect(j.status).to.eql(400);",
+                                    "  pm.expect(j.error).to.eql('Bad Request');",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/auth/login - credenciales inválidas",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "body": { "mode": "raw", "raw": "{\"username\":\"admin\",\"password\":\"wrong-password\"}" },
+                        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/auth/login - usuario inexistente",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "body": { "mode": "raw", "raw": "{\"username\":\"ghost-user\",\"password\":\"any\"}" },
+                        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/auth/login - success",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "body": { "mode": "raw", "raw": "{\"username\":\"{{adminUsername}}\",\"password\":\"{{adminPassword}}\"}" },
+                        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('Devuelve token Bearer', () => {",
+                                    "  pm.expect(j.accessToken || j.token).to.be.a('string');",
+                                    "  pm.expect(j.tokenType || j.type).to.match(/Bearer/i);",
+                                    "});",
+                                    "const tok = j.accessToken || j.token;",
+                                    "pm.environment.set('adminToken', tok);",
+                                    "pm.collectionVariables.set('adminToken', tok);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/auth/me - sin token (401)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/auth/me - Authorization sin Bearer (401)",
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Authorization", "value": "Token foo" }],
+                        "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/auth/me - Bearer vacío (401)",
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Authorization", "value": "Bearer " }],
+                        "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/auth/me - token inválido (401)",
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Authorization", "value": "Bearer not.a.real.jwt.token" }],
+                        "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/auth/me - con token válido",
+                    "request": {
+                        "method": "GET",
+                        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+                        "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Username admin', () => pm.expect(pm.response.json().username).to.eql('admin'));",
+                                    "pm.test('Role ADMIN', () => pm.expect(pm.response.json().role).to.eql('ADMIN'));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "02 - Methodologies",
+            "item": [
+                {
+                    "name": "GET /api/methodologies (sin auth, permitAll)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": { "raw": "{{baseUrl}}/api/methodologies", "host": ["{{baseUrl}}"], "path": ["api", "methodologies"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Lista contiene la semilla', () => {",
+                                    "  const arr = pm.response.json();",
+                                    "  pm.expect(arr).to.be.an('array').that.is.not.empty;",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/methodologies/{seed} ok",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/methodologies/{{seedMethodologyId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "methodologies", "{{seedMethodologyId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Slug semilla', () => pm.expect(pm.response.json().slug).to.eql('scrum-seed'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/methodologies - sin token (401)",
+                    "request": {
+                        "method": "POST",
+                        "header": [{ "key": "Content-Type", "value": "application/json" }],
+                        "body": { "mode": "raw", "raw": "{\"slug\":\"no-auth\",\"name\":\"x\"}" },
+                        "url": { "raw": "{{baseUrl}}/api/methodologies", "host": ["{{baseUrl}}"], "path": ["api", "methodologies"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Status 401', () => pm.response.to.have.status(401));"]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/methodologies - create",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"slug\":\"kanban-newman\",\"name\":\"Kanban (Newman)\",\"introduction\":\"Intro\",\"summary\":\"summary\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/methodologies", "host": ["{{baseUrl}}"], "path": ["api", "methodologies"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.expect(j.id).to.be.a('string');",
+                                    "pm.collectionVariables.set('createdMethodologyId', j.id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/methodologies/{created}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/methodologies/{{createdMethodologyId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "methodologies", "{{createdMethodologyId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/methodologies/{created}",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"slug\":\"kanban-newman\",\"name\":\"Kanban Updated\",\"introduction\":\"Intro v2\",\"summary\":\"Resumen v2\",\"status\":\"published\",\"version\":2,\"languageCode\":\"en\"}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/methodologies/{{createdMethodologyId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "methodologies", "{{createdMethodologyId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Nombre actualizado', () => pm.expect(pm.response.json().name).to.eql('Kanban Updated'));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "03 - Phases",
+            "item": [
+                {
+                    "name": "GET /api/phases",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": { "raw": "{{baseUrl}}/api/phases", "host": ["{{baseUrl}}"], "path": ["api", "phases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/phases/{seed}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/phases/{{seedPhaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "phases", "{{seedPhaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/phases/methodology/{seed}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/phases/methodology/{{seedMethodologyId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "phases", "methodology", "{{seedMethodologyId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Es array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/phases - sin methodologyId (400)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": { "mode": "raw", "raw": "{\"code\":\"P0\",\"title\":\"Sin metodologia\"}" },
+                        "url": { "raw": "{{baseUrl}}/api/phases", "host": ["{{baseUrl}}"], "path": ["api", "phases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/phases - methodologyId inexistente (404)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"methodologyId\":\"99999999-9999-9999-9999-999999999999\",\"code\":\"P0\",\"title\":\"Ghost\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/phases", "host": ["{{baseUrl}}"], "path": ["api", "phases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/phases - create #1",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"methodologyId\":\"{{createdMethodologyId}}\",\"code\":\"P1\",\"title\":\"Phase 1\",\"description\":\"Primera fase\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/phases", "host": ["{{baseUrl}}"], "path": ["api", "phases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.expect(j.id).to.be.a('string');",
+                                    "pm.collectionVariables.set('createdPhaseId', j.id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/phases - create #2 (para reorder)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"methodologyId\":\"{{createdMethodologyId}}\",\"code\":\"P2\",\"title\":\"Phase 2\",\"description\":\"Segunda fase\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/phases", "host": ["{{baseUrl}}"], "path": ["api", "phases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('secondPhaseId', pm.response.json().id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/phases/{created}",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"methodologyId\":\"{{createdMethodologyId}}\",\"code\":\"P1\",\"title\":\"Phase 1 updated\",\"description\":\"Actualizada\"}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/phases/{{createdPhaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "phases", "{{createdPhaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Título actualizado', () => pm.expect(pm.response.json().title).to.eql('Phase 1 updated'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/phases/reorder - sin methodologyId (400)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": { "mode": "raw", "raw": "{\"orderedIds\":[]}" },
+                        "url": { "raw": "{{baseUrl}}/api/phases/reorder", "host": ["{{baseUrl}}"], "path": ["api", "phases", "reorder"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/phases/reorder - orderedIds vacío (400)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"methodologyId\":\"{{createdMethodologyId}}\",\"orderedIds\":[]}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/phases/reorder", "host": ["{{baseUrl}}"], "path": ["api", "phases", "reorder"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/phases/reorder - intercambia orden",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"methodologyId\":\"{{createdMethodologyId}}\",\"orderedIds\":[\"{{secondPhaseId}}\",\"{{createdPhaseId}}\"]}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/phases/reorder", "host": ["{{baseUrl}}"], "path": ["api", "phases", "reorder"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Devuelve lista', () => pm.expect(pm.response.json()).to.be.an('array').with.length.greaterThan(1));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "04 - Subphases",
+            "item": [
+                {
+                    "name": "GET /api/subphases",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": { "raw": "{{baseUrl}}/api/subphases", "host": ["{{baseUrl}}"], "path": ["api", "subphases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/subphases/{seed}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphases/{{seedSubphaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphases", "{{seedSubphaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/subphases/phase/{seed}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphases/phase/{{seedPhaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphases", "phase", "{{seedPhaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphases - sin phaseId (400)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": { "mode": "raw", "raw": "{\"code\":\"S0\",\"title\":\"Sin fase\"}" },
+                        "url": { "raw": "{{baseUrl}}/api/subphases", "host": ["{{baseUrl}}"], "path": ["api", "subphases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphases - phaseId inexistente (404)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"99999999-9999-9999-9999-999999999999\",\"code\":\"S0\",\"title\":\"Ghost\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphases", "host": ["{{baseUrl}}"], "path": ["api", "subphases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphases - create #1",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"{{createdPhaseId}}\",\"code\":\"S1\",\"title\":\"Subphase 1\",\"content\":\"Contenido S1\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphases", "host": ["{{baseUrl}}"], "path": ["api", "subphases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('createdSubphaseId', pm.response.json().id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphases - create #2",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"{{createdPhaseId}}\",\"code\":\"S2\",\"title\":\"Subphase 2\",\"content\":\"Contenido S2\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphases", "host": ["{{baseUrl}}"], "path": ["api", "subphases"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('secondSubphaseId', pm.response.json().id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/subphases/{created} - mismo phase",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"{{createdPhaseId}}\",\"code\":\"S1\",\"title\":\"Subphase 1 updated\",\"content\":\"Cont v2\"}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphases/{{createdSubphaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphases", "{{createdSubphaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Título actualizado', () => pm.expect(pm.response.json().title).to.eql('Subphase 1 updated'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/subphases/{created} - cambiar de phase",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"{{secondPhaseId}}\",\"code\":\"S1\",\"title\":\"Subphase 1 movida\",\"content\":\"Cont movido\"}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphases/{{createdSubphaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphases", "{{createdSubphaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/subphases/{created} - regresar a phase original",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"{{createdPhaseId}}\",\"code\":\"S1\",\"title\":\"Subphase 1 back\",\"content\":\"Cont back\"}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphases/{{createdSubphaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphases", "{{createdSubphaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/subphases/{created} - phaseId inválido (404)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"99999999-9999-9999-9999-999999999999\",\"code\":\"S1\",\"title\":\"X\"}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphases/{{createdSubphaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphases", "{{createdSubphaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphases/reorder - sin phaseId (400)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": { "mode": "raw", "raw": "{\"orderedIds\":[]}" },
+                        "url": { "raw": "{{baseUrl}}/api/subphases/reorder", "host": ["{{baseUrl}}"], "path": ["api", "subphases", "reorder"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphases/reorder - orderedIds vacío (400)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"{{createdPhaseId}}\",\"orderedIds\":[]}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphases/reorder", "host": ["{{baseUrl}}"], "path": ["api", "subphases", "reorder"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphases/reorder - intercambia orden",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"phaseId\":\"{{createdPhaseId}}\",\"orderedIds\":[\"{{secondSubphaseId}}\",\"{{createdSubphaseId}}\"]}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphases/reorder", "host": ["{{baseUrl}}"], "path": ["api", "subphases", "reorder"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "05 - Resources",
+            "item": [
+                {
+                    "name": "GET /api/resources",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": { "raw": "{{baseUrl}}/api/resources", "host": ["{{baseUrl}}"], "path": ["api", "resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/resources/{seed}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/resources/{{seedResourceId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "resources", "{{seedResourceId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/resources - tipo video",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"type\":\"video\",\"title\":\"Video Newman\",\"url\":\"https://example.com/newman-vid-{{$timestamp}}\",\"description\":\"desc\",\"provider\":\"youtube\",\"thumbnailUrl\":\"https://t\",\"metadata\":\"{\\\"youtubeId\\\":\\\"x\\\"}\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/resources", "host": ["{{baseUrl}}"], "path": ["api", "resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('createdResourceId', pm.response.json().id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/resources - tipo article (sin metadata)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"type\":\"article\",\"title\":\"Article Newman\",\"url\":\"https://example.com/newman-art-{{$timestamp}}\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/resources", "host": ["{{baseUrl}}"], "path": ["api", "resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('createdResourceId2', pm.response.json().id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/resources - tipo image",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"type\":\"image\",\"title\":\"Img Newman\",\"url\":\"https://example.com/newman-img-{{$timestamp}}\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/resources", "host": ["{{baseUrl}}"], "path": ["api", "resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/resources/{created}",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"type\":\"video\",\"title\":\"Video Newman v2\",\"url\":\"https://example.com/newman-vid-v2-{{$timestamp}}\",\"description\":\"desc v2\",\"provider\":\"vimeo\",\"thumbnailUrl\":\"https://t2\",\"metadata\":\"{\\\"vimeoId\\\":\\\"y\\\"}\"}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/resources/{{createdResourceId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "resources", "{{createdResourceId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Provider actualizado', () => pm.expect(pm.response.json().provider).to.eql('vimeo'));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "06 - Subphase Resources",
+            "item": [
+                {
+                    "name": "GET /api/subphase-resources",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": { "raw": "{{baseUrl}}/api/subphase-resources", "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/subphase-resources/subphase/{seed}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphase-resources/subphase/{{seedSubphaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources", "subphase", "{{seedSubphaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/subphase-resources/resource/{seed}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphase-resources/resource/{{seedResourceId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources", "resource", "{{seedResourceId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "GET /api/subphase-resources/{seed}/{seed}",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphase-resources/{{seedSubphaseId}}/{{seedResourceId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources", "{{seedSubphaseId}}", "{{seedResourceId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphase-resources - subphase inexistente (404)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"subphaseId\":\"99999999-9999-9999-9999-999999999999\",\"resourceId\":\"{{createdResourceId}}\",\"orderIndex\":1,\"note\":\"x\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphase-resources", "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphase-resources - resource inexistente (404)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"subphaseId\":\"{{createdSubphaseId}}\",\"resourceId\":\"99999999-9999-9999-9999-999999999999\",\"orderIndex\":1,\"note\":\"x\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphase-resources", "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphase-resources - link válido",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"subphaseId\":\"{{createdSubphaseId}}\",\"resourceId\":\"{{createdResourceId}}\",\"orderIndex\":1,\"note\":\"recurso recomendado\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphase-resources", "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "POST /api/subphase-resources - link válido #2",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"subphaseId\":\"{{createdSubphaseId}}\",\"resourceId\":\"{{createdResourceId2}}\",\"orderIndex\":2,\"note\":\"otro\"}"
+                        },
+                        "url": { "raw": "{{baseUrl}}/api/subphase-resources", "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources"] }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/subphase-resources/{s}/{r}",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\"orderIndex\":5,\"note\":\"actualizado\"}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphase-resources/{{createdSubphaseId}}/{{createdResourceId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources", "{{createdSubphaseId}}", "{{createdResourceId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('Nota actualizada', () => pm.expect(pm.response.json().note).to.eql('actualizado'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "PUT /api/subphase-resources - 404 si no existe",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            { "key": "Content-Type", "value": "application/json" },
+                            { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+                        ],
+                        "body": { "mode": "raw", "raw": "{\"orderIndex\":1,\"note\":\"x\"}" },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphase-resources/99999999-9999-9999-9999-999999999999/99999999-9999-9999-9999-999999999999",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources", "99999999-9999-9999-9999-999999999999", "99999999-9999-9999-9999-999999999999"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "DELETE /api/subphase-resources/{s}/{r2}",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphase-resources/{{createdSubphaseId}}/{{createdResourceId2}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphase-resources", "{{createdSubphaseId}}", "{{createdResourceId2}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "07 - Cleanup",
+            "item": [
+                {
+                    "name": "DELETE /api/resources/{created}",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/resources/{{createdResourceId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "resources", "{{createdResourceId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "DELETE /api/subphases/{created}",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/subphases/{{createdSubphaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "subphases", "{{createdSubphaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "DELETE /api/phases/{created}",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/phases/{{createdPhaseId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "phases", "{{createdPhaseId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                },
+                {
+                    "name": "DELETE /api/methodologies/{created}",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/methodologies/{{createdMethodologyId}}",
+                            "host": ["{{baseUrl}}"], "path": ["api", "methodologies", "{{createdMethodologyId}}"]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

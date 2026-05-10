@@ -2,6 +2,11 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.7'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'jacoco'
+}
+
+jacoco {
+	toolVersion = '0.8.11'
 }
 
 group = 'com.icesi'
@@ -27,6 +32,14 @@ repositories {
 	mavenCentral()
 }
 
+configurations {
+	jacocoRuntimeAgent
+}
+
+dependencies {
+	jacocoRuntimeAgent 'org.jacoco:org.jacoco.agent:0.8.11:runtime'
+}
+
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -50,4 +63,87 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// ---------------------------------------------------------------------------
+// JaCoCo + Newman integration
+// ---------------------------------------------------------------------------
+// La estrategia es:
+//   1. Arrancar la aplicación con el agente de JaCoCo adjuntado vía -javaagent.
+//   2. Ejecutar la colección Postman/Newman contra el servidor en vivo.
+//   3. Apagar el servidor (lo cual hace flush del archivo .exec).
+//   4. Generar el reporte HTML/XML y validar coverage >= 90%.
+//
+// Estas tareas dependen del archivo `build/jacoco/newman.exec` que produce el
+// runner `newman/run-newman-tests.ps1` (o `.sh`).
+
+ext {
+	newmanExecFile = layout.buildDirectory.file('jacoco/newman.exec')
+	newmanReportDir = layout.buildDirectory.dir('reports/jacoco/newman')
+}
+
+// Clases que no deseamos contar en el coverage (artefactos de Spring/Lombok
+// triviales, configuración estática y la clase main).
+ext.jacocoExclusions = [
+	'**/DevopsSandboxBackendApplication.class',
+	'**/dto/**',
+	'**/domain/repository/**',
+	'**/exception/ApiError.class',
+	'**/config/OpenApiConfig.class',
+	'**/config/CorsConfig.class'
+]
+
+def filteredMainClasses() {
+	def excludes = jacocoExclusions
+	return files(sourceSets.main.output).asFileTree.matching { pat ->
+		pat.exclude(excludes)
+	}
+}
+
+tasks.register('jacocoNewmanReport', JacocoReport) {
+	group = 'verification'
+	description = 'Genera el reporte de coverage a partir de la ejecución de Newman.'
+	executionData.setFrom(files(newmanExecFile))
+	sourceDirectories.setFrom(files(sourceSets.main.allSource.srcDirs))
+	classDirectories.setFrom(filteredMainClasses())
+	reports {
+		xml.required = true
+		html.required = true
+		csv.required = false
+	}
+	onlyIf { newmanExecFile.get().asFile.exists() }
+}
+
+tasks.register('jacocoNewmanCoverageVerification', JacocoCoverageVerification) {
+	group = 'verification'
+	description = 'Verifica que el coverage de las pruebas Newman sea >= 90% en líneas.'
+	executionData.setFrom(files(newmanExecFile))
+	sourceDirectories.setFrom(files(sourceSets.main.allSource.srcDirs))
+	classDirectories.setFrom(filteredMainClasses())
+	violationRules {
+		rule {
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.90
+			}
+		}
+		rule {
+			limit {
+				counter = 'INSTRUCTION'
+				value = 'COVEREDRATIO'
+				minimum = 0.85
+			}
+		}
+	}
+	onlyIf { newmanExecFile.get().asFile.exists() }
+}
+
+tasks.register('printJacocoAgentPath') {
+	group = 'verification'
+	description = 'Imprime la ruta absoluta del jar del agente de JaCoCo standalone (jacocoagent runtime).'
+	doLast {
+		def agent = configurations.jacocoRuntimeAgent.singleFile
+		println agent.absolutePath
+	}
 }
