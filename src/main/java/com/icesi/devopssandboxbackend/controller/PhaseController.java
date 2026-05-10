@@ -71,4 +71,28 @@ public class PhaseController {
 	public void delete(@PathVariable UUID id) {
 		phaseService.deleteById(id);
 	}
+
+	public static class ReorderRequest {
+		private UUID methodologyId;
+		private List<UUID> orderedIds;
+
+		public UUID getMethodologyId() { return methodologyId; }
+		public void setMethodologyId(UUID methodologyId) { this.methodologyId = methodologyId; }
+		public List<UUID> getOrderedIds() { return orderedIds; }
+		public void setOrderedIds(List<UUID> orderedIds) { this.orderedIds = orderedIds; }
+	}
+
+	@PostMapping("/reorder")
+	public List<PhaseDTO> reorder(@RequestBody ReorderRequest body) {
+		if (body.getMethodologyId() == null) {
+			throw new IllegalArgumentException("methodologyId es obligatorio.");
+		}
+		if (body.getOrderedIds() == null || body.getOrderedIds().isEmpty()) {
+			throw new IllegalArgumentException("orderedIds es obligatorio.");
+		}
+		phaseService.reorder(body.getMethodologyId(), body.getOrderedIds());
+		return phaseService.findByMethodologyId(body.getMethodologyId()).stream()
+				.map(PhaseMapper::toDTO)
+				.collect(Collectors.toList());
+	}
 }

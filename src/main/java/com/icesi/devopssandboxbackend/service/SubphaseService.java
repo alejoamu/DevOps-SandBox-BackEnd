@@ -16,4 +16,10 @@ public interface SubphaseService {
 
     void deleteById(UUID id);
 
+    /**
+     * Reordena atómicamente las subfases de una fase. {@code orderedIds}
+     * define el nuevo orden (índice 0..n-1). Doble pasada para evitar
+     * choques con el constraint UNIQUE (phase_id, order_index).
+     */
+    void reorder(UUID phaseId, java.util.List<UUID> orderedIds);
 }

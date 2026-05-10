@@ -10,15 +10,10 @@ import jakarta.validation.constraints.NotBlank;
 public class AdminSecurityProperties {
 
 	private final Jwt jwt = new Jwt();
-	private final Admin admin = new Admin();
 	private final Cors cors = new Cors();
 
 	public Jwt getJwt() {
 		return jwt;
-	}
-
-	public Admin getAdmin() {
-		return admin;
 	}
 
 	public Cors getCors() {
@@ -44,29 +39,6 @@ public class AdminSecurityProperties {
 
 		public void setExpirationMs(long expirationMs) {
 			this.expirationMs = expirationMs;
-		}
-	}
-
-	public static class Admin {
-		@NotBlank
-		private String username = "admin";
-		@NotBlank
-		private String password = "admin";
-
-		public String getUsername() {
-			return username;
-		}
-
-		public void setUsername(String username) {
-			this.username = username;
-		}
-
-		public String getPassword() {
-			return password;
-		}
-
-		public void setPassword(String password) {
-			this.password = password;
 		}
 	}
 

@@ -44,6 +44,19 @@ public class PhaseServiceImpl implements PhaseService {
 	public Phase save(Phase incoming) {
 		OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
 		if (incoming.getId() == null) {
+			// En create siempre se autoasigna al final del orden de la metodología.
+			// El cliente no decide el orderIndex: el reordenamiento se hace por DnD.
+			if (incoming.getMethodology() == null || incoming.getMethodology().getId() == null) {
+				throw new IllegalArgumentException("La fase debe estar asociada a una metodología.");
+			}
+			UUID methodologyId = incoming.getMethodology().getId();
+			int next = phaseRepository.findByMethodologyId(methodologyId).stream()
+					.map(Phase::getOrderIndex)
+					.filter(java.util.Objects::nonNull)
+					.mapToInt(Integer::intValue)
+					.max()
+					.orElse(-1) + 1;
+			incoming.setOrderIndex(next);
 			incoming.setCreatedAt(now);
 			incoming.setUpdatedAt(now);
 			return phaseRepository.save(incoming);
@@ -53,7 +66,8 @@ public class PhaseServiceImpl implements PhaseService {
 		existing.setCode(incoming.getCode());
 		existing.setTitle(incoming.getTitle());
 		existing.setDescription(incoming.getDescription());
-		existing.setOrderIndex(incoming.getOrderIndex());
+		// orderIndex no se modifica desde el formulario de edición:
+		// el reordenamiento se hace exclusivamente por el endpoint /reorder.
 		existing.setUpdatedAt(now);
 		if (incoming.getMethodology() != null) {
 			existing.setMethodology(incoming.getMethodology());
@@ -69,5 +83,39 @@ public class PhaseServiceImpl implements PhaseService {
 			subphaseService.deleteById(s.getId());
 		}
 		phaseRepository.deleteById(id);
+	}
+
+	@Override
+	@Transactional
+	public void reorder(UUID methodologyId, List<UUID> orderedIds) {
+		if (methodologyId == null || orderedIds == null || orderedIds.isEmpty()) {
+			return;
+		}
+		List<Phase> phases = phaseRepository.findByMethodologyId(methodologyId);
+		java.util.Map<UUID, Phase> byId = new java.util.HashMap<>();
+		for (Phase p : phases) {
+			byId.put(p.getId(), p);
+		}
+		OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+		// Pasada 1: rango temporal alto para liberar los slots finales
+		int temp = 1000;
+		for (UUID id : orderedIds) {
+			Phase p = byId.get(id);
+			if (p == null) {
+				throw new ResourceNotFoundException("Fase no encontrada: " + id);
+			}
+			p.setOrderIndex(temp++);
+			p.setUpdatedAt(now);
+		}
+		phaseRepository.saveAll(byId.values());
+		phaseRepository.flush();
+		// Pasada 2: índices finales 0..n-1
+		for (int i = 0; i < orderedIds.size(); i++) {
+			Phase p = byId.get(orderedIds.get(i));
+			p.setOrderIndex(i);
+			p.setUpdatedAt(now);
+		}
+		phaseRepository.saveAll(byId.values());
+		phaseRepository.flush();
 	}
 }

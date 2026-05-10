@@ -79,4 +79,28 @@ public class SubphaseController {
 	public void delete(@PathVariable UUID id) {
 		subphaseService.deleteById(id);
 	}
+
+	public static class ReorderRequest {
+		private UUID phaseId;
+		private List<UUID> orderedIds;
+
+		public UUID getPhaseId() { return phaseId; }
+		public void setPhaseId(UUID phaseId) { this.phaseId = phaseId; }
+		public List<UUID> getOrderedIds() { return orderedIds; }
+		public void setOrderedIds(List<UUID> orderedIds) { this.orderedIds = orderedIds; }
+	}
+
+	@PostMapping("/reorder")
+	public List<SubphaseDTO> reorder(@RequestBody ReorderRequest body) {
+		if (body.getPhaseId() == null) {
+			throw new IllegalArgumentException("phaseId es obligatorio.");
+		}
+		if (body.getOrderedIds() == null || body.getOrderedIds().isEmpty()) {
+			throw new IllegalArgumentException("orderedIds es obligatorio.");
+		}
+		subphaseService.reorder(body.getPhaseId(), body.getOrderedIds());
+		return subphaseService.findByPhaseId(body.getPhaseId()).stream()
+				.map(SubphaseMapper::toDTO)
+				.collect(Collectors.toList());
+	}
 }

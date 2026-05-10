@@ -16,4 +16,11 @@ public interface PhaseService {
 
     void deleteById(UUID id);
 
+    /**
+     * Reordena atómicamente las fases de una metodología. {@code orderedIds}
+     * define el nuevo orden (índice 0..n-1). La operación es resistente al
+     * constraint UNIQUE (methodology_id, order_index) gracias a una doble
+     * pasada (rango temporal alto -> rango final).
+     */
+    void reorder(UUID methodologyId, java.util.List<UUID> orderedIds);
 }
