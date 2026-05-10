@@ -49,7 +49,6 @@ public class JwtService {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	public List<String> extractRoles(String token) {
 		Object role = parseClaims(token).get("role");
 		if (role instanceof String s) {

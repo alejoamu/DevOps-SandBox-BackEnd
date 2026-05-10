@@ -1,7 +1,6 @@
 package com.icesi.devopssandboxbackend.domain.model;
 
 import jakarta.persistence.*;
-import org.hibernate.annotations.GenericGenerator;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -18,8 +17,7 @@ import java.util.UUID;
 public class Subphase {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
